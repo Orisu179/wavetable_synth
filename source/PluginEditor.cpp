@@ -24,7 +24,7 @@ void PluginEditor::paint (juce::Graphics& g)
     auto area = getLocalBounds();
     g.setColour (juce::Colours::white);
     g.setFont (16.0f);
-    auto helloWorld = juce::String ("Hello world ");
+    auto helloWorld = juce::String ("Playing sound");
     g.drawText (helloWorld, area.removeFromTop (150), juce::Justification::centred, false);
 }
 

@@ -5,9 +5,8 @@
 class WavetableSynth
 {
 public:
-    WavetableSynth();
     void setSampleRate (double sampleRate);
-    void render(juce::AudioBuffer<float>& buffer, int curSample, int midiEventSample);
+    void render(juce::AudioBuffer<float>& buffer, int startSample, int endSample);
     void handleMidiEvent(juce::MidiMessage midiMessage);
     void initializeOscillators(int count);
 
@@ -16,5 +15,5 @@ private:
     juce::OwnedArray<WavetableOscillator> oscillators;
     double sampleRate;
 
-    juce::AudioSampleBuffer& generateSineWaveTable();
+    juce::AudioSampleBuffer generateSineWaveTable();
 };

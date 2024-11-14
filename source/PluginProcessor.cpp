@@ -87,15 +87,8 @@ void PluginProcessor::changeProgramName (int index, const juce::String& newName)
 //==============================================================================
 void PluginProcessor::prepareToPlay (const double sampleRate, int samplesPerBlock)
 {
-    auto numberOfOscillators = 10;
-    for(auto i {0}; i<numberOfOscillators; i++){
-        auto* oscillator = new WavetableOscillator(sineTable, sampleRate);
-        // TODO: THIS IS RANDOM FOR NOW
-        const auto midiNote = juce::Random::getSystemRandom().nextDouble() * 36.0 + 48.0;
-        const auto frequency = 440.0 * pow(2.0,(midiNote - 69.0) / 12.0);
-        oscillator->setFrequency(static_cast<float>(frequency));
-        level = 0.25f / static_cast<float>(numberOfOscillators);
-    }
+    synth.setSampleRate(sampleRate);
+    synth.initializeOscillators(10);
     juce::ignoreUnused (samplesPerBlock);
 }
 

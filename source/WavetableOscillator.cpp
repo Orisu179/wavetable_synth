@@ -1,9 +1,8 @@
 #include "WavetableOscillator.h"
 
 WavetableOscillator::WavetableOscillator (const juce::AudioSampleBuffer& wavetableToUse, double sampleRate)
-    : waveTable(wavetableToUse), sampleRate (sampleRate)
+    : sampleRate (sampleRate), waveTable(wavetableToUse)
 {
-    jassert(waveTable.getNumChannels() == 1);
 }
 
 void WavetableOscillator::setFrequency (const float frequency)
@@ -38,7 +37,7 @@ void WavetableOscillator::stop()
     tableDelta = 0.f;
 }
 
-bool WavetableOscillator::isPlaying()
+bool WavetableOscillator::isPlaying() const
 {
     return tableDelta != 0.f;
 }

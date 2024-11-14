@@ -5,9 +5,24 @@ void WavetableSynth::setSampleRate (double sampleRate)
     this->sampleRate = sampleRate;
 }
 
-void WavetableSynth::render (juce::AudioBuffer<float>& buffer, int curSample, int midiEventSample)
+void WavetableSynth::render (juce::AudioBuffer<float>& buffer, int startSample, int endSample)
 {
+    auto* firstChannel = buffer.getWritePointer(0);
+    for (auto& oscillator: oscillators)
+    {
+        if(oscillator->isPlaying())
+        {
+            for(auto sample = startSample; sample < endSample; sample++)
+            {
+                // TODO: this might be too loud or too quiet since it's added
+                firstChannel[sample] += oscillator->getNextSample();
+            }
+        }
+    }
 
+    for (auto channel = 1; channel < buffer.getNumChannels(); channel++){
+        std::copy(firstChannel + startSample, firstChannel + endSample, buffer.getWritePointer(channel) + startSample);
+    }
 }
 
 void WavetableSynth::handleMidiEvent (juce::MidiMessage midiMessage)
@@ -16,13 +31,19 @@ void WavetableSynth::handleMidiEvent (juce::MidiMessage midiMessage)
     {
         const auto note = midiMessage.getNoteNumber();
         const auto freq = midiNoteNumberToFreq (note);
-        oscillators[note]->setFrequency (note);
+        oscillators[note]->setFrequency (freq);
     }
     else if (midiMessage.isNoteOff())
     {
+        const auto note = midiMessage.getNoteNumber();
+        oscillators[note]->stop();
     }
     else if (midiMessage.isAllNotesOff())
     {
+        for(auto& osc: oscillators)
+        {
+            osc->stop();
+        }
     }
 }
 
@@ -34,10 +55,10 @@ float WavetableSynth::midiNoteNumberToFreq (const int noteNumber)
     return A4_FREQ * std::pow (2.f, (noteNumber - A4_NOTE) / SEMITONES_IN_AN_OCTAVE);
 }
 
-juce::AudioSampleBuffer& WavetableSynth::generateSineWaveTable()
+juce::AudioSampleBuffer WavetableSynth::generateSineWaveTable()
 {
     constexpr auto SINE_WAVETABLE_SIZE = 64;
-    constexpr auto PI = std::atan (1.f) * 4;
+    const auto PI = std::atan (1.f) * 4;
     juce::AudioSampleBuffer sineWaveTable;
     sineWaveTable.setSize (1, SINE_WAVETABLE_SIZE);
     float curSample = 0.f;

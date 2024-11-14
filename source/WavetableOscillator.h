@@ -7,7 +7,9 @@ public:
     WavetableOscillator(const juce::AudioSampleBuffer& wavetableToUse, double sampleRate);
 
     void setFrequency(float frequency);
+    void stop();
     float getNextSample();
+    bool isPlaying() const;
 
 private:
     float sampleRate;
@@ -15,6 +17,4 @@ private:
     float currentIndex = 0.0f, tableDelta = 0.0f;
 
     float interpolateLinearly();
-    void stop();
-    bool isPlaying();
 };
