@@ -2,6 +2,7 @@
 
 #include <juce_audio_processors/juce_audio_processors.h>
 #include "WavetableOscillator.h"
+#include "WavetableSynth.h"
 
 #if (MSVC)
     #include "ipps.h"
@@ -46,5 +47,6 @@ private:
     float level = 0.0f;
     juce::AudioSampleBuffer sineTable;
     juce::OwnedArray<WavetableOscillator> oscillators;
+    WavetableSynth synth;
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (PluginProcessor)
 };

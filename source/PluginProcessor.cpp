@@ -85,15 +85,15 @@ void PluginProcessor::changeProgramName (int index, const juce::String& newName)
 }
 
 //==============================================================================
-void PluginProcessor::prepareToPlay (double sampleRate, int samplesPerBlock)
+void PluginProcessor::prepareToPlay (const double sampleRate, int samplesPerBlock)
 {
     auto numberOfOscillators = 10;
     for(auto i {0}; i<numberOfOscillators; i++){
-        auto* oscillator = new WavetableOscillator(sineTable);
+        auto* oscillator = new WavetableOscillator(sineTable, sampleRate);
         // TODO: THIS IS RANDOM FOR NOW
-        auto midiNote = juce::Random::getSystemRandom().nextDouble() * 36.0 + 48.0;
-        auto frequency = 440.0 * pow(2.0,(midiNote - 69.0) / 12.0);
-        oscillator->setFrequency(static_cast<float>(frequency), static_cast<float>(sampleRate));
+        const auto midiNote = juce::Random::getSystemRandom().nextDouble() * 36.0 + 48.0;
+        const auto frequency = 440.0 * pow(2.0,(midiNote - 69.0) / 12.0);
+        oscillator->setFrequency(static_cast<float>(frequency));
         level = 0.25f / static_cast<float>(numberOfOscillators);
     }
     juce::ignoreUnused (samplesPerBlock);
@@ -130,21 +130,21 @@ bool PluginProcessor::isBusesLayoutSupported (const BusesLayout& layouts) const
 void PluginProcessor::processBlock (juce::AudioBuffer<float>& buffer,
     juce::MidiBuffer& midiMessages)
 {
-    juce::ignoreUnused (midiMessages);
-
+    auto currentSample = 0;
     juce::ScopedNoDenormals noDenormals;
-    auto totalNumInputChannels = getTotalNumInputChannels();
-    auto totalNumOutputChannels = getTotalNumOutputChannels();
+    // get rid of all audio inputs
+    buffer.clear();
 
-    // when output > inputs, clears output channel that doesn't contain input data
-    for (auto i = totalNumInputChannels; i < totalNumOutputChannels; ++i)
-        buffer.clear (i, 0, buffer.getNumSamples());
-
-    for (int channel = 0; channel < totalNumInputChannels; ++channel)
+    for(const auto midiMessage : midiMessages)
     {
-        auto* channelData = buffer.getWritePointer (channel);
-        juce::ignoreUnused (channelData);
+        const auto midiEvent = midiMessage.getMessage();
+        const auto midiEventSample = static_cast<int>(midiEvent.getTimeStamp());
+        synth.render (buffer, currentSample, midiEventSample);
+        synth.handleMidiEvent (midiEvent);
+        currentSample = midiEventSample;
     }
+    synth.render (buffer, currentSample, buffer.getNumSamples());
+
 }
 
 //==============================================================================
