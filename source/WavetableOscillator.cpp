@@ -1,44 +1,43 @@
+#include <cmath>
 #include "WavetableOscillator.h"
 
-WavetableOscillator::WavetableOscillator (const juce::AudioSampleBuffer& wavetableToUse, double sampleRate)
-    : sampleRate (sampleRate), waveTable(wavetableToUse)
-{
-}
+WavetableOscillator::WavetableOscillator(std::vector<float> waveTable, double sampleRate)
+: waveTable{ std::move(waveTable) },
+    sampleRate{ sampleRate }
+{}
 
-void WavetableOscillator::setFrequency (const float frequency)
+float WavetableOscillator::getSample()
 {
-    const auto tableSizeOverSampleRate = static_cast<float> (waveTable.getNumSamples() / sampleRate);
-    tableDelta = frequency * tableSizeOverSampleRate;
-}
-float WavetableOscillator::getNextSample()
-{
-    auto tableSize = static_cast<unsigned int>(waveTable.getNumSamples());
+    index = std::fmod(index, static_cast<float>(waveTable.size()));
     const auto sample = interpolateLinearly();
-    currentIndex += tableDelta;
-    currentIndex = std::fmod (currentIndex, tableSize);
+    index += indexIncrement;
     return sample;
 }
 
-float WavetableOscillator::interpolateLinearly()
+void WavetableOscillator::setFrequency(float frequency)
 {
-    const auto intIndex = static_cast<int> (currentIndex);
-    const auto nextIndex = (intIndex + 1) % waveTable.getNumSamples();
-
-    const auto nextIndexWeight = currentIndex - static_cast<float>(intIndex);
-    const auto intIndexWeight = 1.f - nextIndexWeight;
-
-    return intIndexWeight * waveTable.getSample (0, intIndex)
-        + nextIndexWeight * waveTable.getSample (0, nextIndex);
+    indexIncrement = frequency * static_cast<float>(waveTable.size())
+                                        / static_cast<float>(sampleRate);
 }
 
 void WavetableOscillator::stop()
 {
-    currentIndex = 0.f;
-    tableDelta = 0.f;
+    index = 0.f;
+    indexIncrement = 0.f;
 }
 
 bool WavetableOscillator::isPlaying() const
 {
-    return tableDelta != 0.f;
+    return indexIncrement != 0.f;
+}
+
+float WavetableOscillator::interpolateLinearly() const
+{
+    const auto truncatedIndex = static_cast<typename  decltype(waveTable)::size_type>(index);
+    const auto nextIndex = static_cast<typename  decltype(waveTable)::size_type>
+                                                            (std::ceil(index)) % waveTable.size();
+    const auto nextIndexWeight = index - static_cast<float>(truncatedIndex);
+    return waveTable[nextIndex] * nextIndexWeight + 
+                            (1.f - nextIndexWeight) * waveTable[truncatedIndex];
 }
 

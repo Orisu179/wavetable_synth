@@ -1,19 +1,22 @@
-﻿#pragma once
-#include "WavetableOscillator.h"
+#pragma once
 #include "juce_audio_basics/juce_audio_basics.h"
+
+#include "WavetableOscillator.h"
 
 class WavetableSynth
 {
 public:
-    void setSampleRate (double sampleRate);
-    void render(juce::AudioBuffer<float>& buffer, int startSample, int endSample);
-    void handleMidiEvent(juce::MidiMessage midiMessage);
-    void initializeOscillators(int count);
+    void prepareToPlay(double sampleRate);
+    void processBlock(juce::AudioBuffer<float>& buffer, juce::MidiBuffer& midiMessages);
 
 private:
-    static float midiNoteNumberToFreq(int);
-    juce::OwnedArray<WavetableOscillator> oscillators;
-    double sampleRate;
+    static std::vector<float> generateSineWaveTable();
+    static float midiNoteNumberToFrequency(int midiNoteNumber);
+    void initializeOscillators();
+    void handleMidiEvent(const juce::MidiMessage& midiMessage);
+    void render(juce::AudioBuffer<float>& buffer, int beginSample, int endSample);
 
-    juce::AudioSampleBuffer generateSineWaveTable();
+    double sampleRate;
+    std::vector<WavetableOscillator> oscillators;
 };
+

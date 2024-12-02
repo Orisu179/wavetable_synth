@@ -1,36 +1,40 @@
+/*
+  ==============================================================================
+
+    This file contains the basic framework code for a JUCE plugin editor.
+
+  ==============================================================================
+*/
+
+#include "PluginProcessor.h"
 #include "PluginEditor.h"
 
-PluginEditor::PluginEditor (PluginProcessor& p)
-    : AudioProcessorEditor (&p), processorRef (p)
+//==============================================================================
+WavetableSynthAudioProcessorEditor::WavetableSynthAudioProcessorEditor (WavetableSynthAudioProcessor& p)
+    : AudioProcessorEditor (&p), audioProcessor (p)
 {
-    juce::ignoreUnused (processorRef);
-    cpuUsageLabel.setText("CPU Usage", juce::dontSendNotification);
-    cpuUsageText.setJustificationType(juce::Justification::right);
-    addAndMakeVisible(cpuUsageLabel);
-    addAndMakeVisible(cpuUsageText);
-
-    setSize (400, 200);
+    // Make sure that before the constructor has finished, you've set the
+    // editor's size to whatever you need it to be.
+    setSize (400, 300);
 }
 
-PluginEditor::~PluginEditor()
+WavetableSynthAudioProcessorEditor::~WavetableSynthAudioProcessorEditor()
 {
 }
 
-void PluginEditor::paint (juce::Graphics& g)
+//==============================================================================
+void WavetableSynthAudioProcessorEditor::paint (juce::Graphics& g)
 {
     // (Our component is opaque, so we must completely fill the background with a solid colour)
     g.fillAll (getLookAndFeel().findColour (juce::ResizableWindow::backgroundColourId));
 
-    auto area = getLocalBounds();
     g.setColour (juce::Colours::white);
-    g.setFont (16.0f);
-    auto helloWorld = juce::String ("Playing sound");
-    g.drawText (helloWorld, area.removeFromTop (150), juce::Justification::centred, false);
+    g.setFont (15.0f);
+    g.drawFittedText ("Playing wavetable", getLocalBounds(), juce::Justification::centred, 1);
 }
 
-void PluginEditor::resized()
+void WavetableSynthAudioProcessorEditor::resized()
 {
-    // layout the positions of your child components here
-    auto area = getLocalBounds();
-    area.removeFromBottom (50);
+    // This is generally where you'll want to lay out the positions of any
+    // subcomponents in your editor..
 }
