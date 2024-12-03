@@ -6,7 +6,7 @@ std::vector<float> WavetableSynth::generateSineWaveTable()
     const auto PI = std::atanf(1.f) * 4;
     std::vector<float> sineWaveTable = std::vector<float>(WAVETABLE_LENGTH);
 
-    for (auto i = 0; i < WAVETABLE_LENGTH; ++i)
+    for (unsigned long i = 0; i < WAVETABLE_LENGTH; ++i)
     {
         sineWaveTable[i] = std::sinf(2 * PI * static_cast<float>(i) / WAVETABLE_LENGTH);
     }
@@ -22,13 +22,14 @@ void WavetableSynth::initializeOscillators()
 
     for (auto i = 0; i < OSCILLATOR_COUNT; ++i)
     {
-        oscillators.emplace_back(sineWaveTable, sampleRate);
+        oscillators.emplace_back(sineWaveTable, curSampleRate);
     }
 }
 
 void WavetableSynth::prepareToPlay(double sampleRate)
 {
-    this->sampleRate = sampleRate;
+    curSampleRate = sampleRate;
+    adsr.setSampleRate(sampleRate);
 
     initializeOscillators();
 }
@@ -44,6 +45,7 @@ void WavetableSynth::processBlock(juce::AudioBuffer<float>& buffer,
         const auto messagePosition = static_cast<int>(message.getTimeStamp());
 
         render(buffer, currentSample, messagePosition);
+        adsr.applyEnvelopeToBuffer(buffer, currentSample, messagePosition);
         currentSample = messagePosition;
         handleMidiEvent(message);
     }
@@ -65,12 +67,14 @@ void WavetableSynth::handleMidiEvent(const juce::MidiMessage& midiMessage)
     {
         const auto oscillatorId = midiMessage.getNoteNumber();
         const auto frequency = midiNoteNumberToFrequency(oscillatorId);
-        oscillators[oscillatorId].setFrequency(frequency);
+        oscillators[static_cast<unsigned long>(oscillatorId)].setFrequency(frequency);
+        adsr.noteOn();
     }
     else if (midiMessage.isNoteOff())
     {
         const auto oscillatorId = midiMessage.getNoteNumber();
-        oscillators[oscillatorId].stop();
+        oscillators[static_cast<unsigned long>(oscillatorId)].stop();
+        adsr.noteOff();
     }
     else if (midiMessage.isAllNotesOff())
     {
@@ -90,7 +94,7 @@ void WavetableSynth::render(juce::AudioBuffer<float>& buffer, int beginSample, i
         {
             for (auto sample = beginSample; sample < endSample; ++sample)
             {
-                firstChannel[sample] += oscillator.getSample();
+                firstChannel[sample] += oscillator.getSample() + gain;
             }
         }
     }
@@ -100,5 +104,24 @@ void WavetableSynth::render(juce::AudioBuffer<float>& buffer, int beginSample, i
         auto* channelData = buffer.getWritePointer(channel);
         std::copy(firstChannel + beginSample, firstChannel + endSample, channelData + beginSample);
     }
+}
+
+void WavetableSynth::setADSR (float attack, float decay, float sustain, float release)
+{
+    AdsrParams.attack = attack;
+    AdsrParams.decay = decay;
+    AdsrParams.sustain = sustain;
+    AdsrParams.release = release;
+    adsr.setParameters(AdsrParams);
+}
+
+void WavetableSynth::setGain (float gain)
+{
+    this->gain = gain;
+}
+
+void WavetableSynth::setType (juce::String type)
+{
+
 }
 

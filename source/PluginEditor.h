@@ -22,11 +22,15 @@ public:
     //==============================================================================
     void paint (juce::Graphics&) override;
     void resized() override;
+    std::unique_ptr<juce::AudioProcessorValueTreeState::SliderAttachment> gainValue;
+//    std::unique_ptr<juce::AudioProcessorValueTreeState::SliderAttachment> attackValue;
+//    std::unique_ptr<juce::AudioProcessorValueTreeState::SliderAttachment> delayValue;
+//    std::unique_ptr<juce::AudioProcessorValueTreeState::SliderAttachment> sustainValue;
+//    std::unique_ptr<juce::AudioProcessorValueTreeState::SliderAttachment> releaseValue;
 
 private:
-    // This reference is provided as a quick way for your editor to
-    // access the processor object that created it.
     WavetableSynthAudioProcessor& audioProcessor;
+    juce::Slider gainSlider;
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (WavetableSynthAudioProcessorEditor)
 };

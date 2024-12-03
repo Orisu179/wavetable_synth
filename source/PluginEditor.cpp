@@ -13,13 +13,17 @@
 WavetableSynthAudioProcessorEditor::WavetableSynthAudioProcessorEditor (WavetableSynthAudioProcessor& p)
     : AudioProcessorEditor (&p), audioProcessor (p)
 {
-    // Make sure that before the constructor has finished, you've set the
-    // editor's size to whatever you need it to be.
-    setSize (400, 300);
+    gainValue = std::make_unique<juce::AudioProcessorValueTreeState::SliderAttachment> (audioProcessor.apvts, "gain", gainSlider);
+    setSize (600, 400);
+    gainSlider.setSliderStyle(juce::Slider::SliderStyle::Rotary);
+    gainSlider.setTextBoxStyle(juce::Slider::TextBoxAbove, true, 100, 25);
+    gainSlider.setRange(-48.0f, 0.0f);
+    gainSlider.setValue(-15.0f);
 }
 
 WavetableSynthAudioProcessorEditor::~WavetableSynthAudioProcessorEditor()
 {
+
 }
 
 //==============================================================================
@@ -30,11 +34,10 @@ void WavetableSynthAudioProcessorEditor::paint (juce::Graphics& g)
 
     g.setColour (juce::Colours::white);
     g.setFont (15.0f);
-    g.drawFittedText ("Playing wavetable", getLocalBounds(), juce::Justification::centred, 1);
+    g.drawFittedText ("Wavetable Synth", getLocalBounds().removeFromTop(10.f), juce::Justification::centred, 1);
 }
 
 void WavetableSynthAudioProcessorEditor::resized()
 {
-    // This is generally where you'll want to lay out the positions of any
-    // subcomponents in your editor..
+    addAndMakeVisible(gainSlider);
 }

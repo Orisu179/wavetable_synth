@@ -12,20 +12,23 @@
 //==============================================================================
 WavetableSynthAudioProcessor::WavetableSynthAudioProcessor()
 #ifndef JucePlugin_PreferredChannelConfigurations
-     : AudioProcessor (BusesProperties()
-                     #if ! JucePlugin_IsMidiEffect
-                      #if ! JucePlugin_IsSynth
-                       .withInput  ("Input",  juce::AudioChannelSet::stereo(), true)
-                      #endif
-                       .withOutput ("Output", juce::AudioChannelSet::stereo(), true)
-                     #endif
-                       )
+    : AudioProcessor (BusesProperties()
+    #if !JucePlugin_IsMidiEffect
+        #if !JucePlugin_IsSynth
+              .withInput ("Input", juce::AudioChannelSet::stereo(), true)
+        #endif
+              .withOutput ("Output", juce::AudioChannelSet::stereo(), true)
+    #endif
+              ),
+      apvts (*this, nullptr, juce::Identifier ("Wavetable Synth"), createParameterLayout())
 #endif
 {
+    apvts.state.addListener (this);
 }
 
 WavetableSynthAudioProcessor::~WavetableSynthAudioProcessor()
 {
+    apvts.state.removeListener (this);
 }
 
 //==============================================================================
@@ -36,29 +39,29 @@ const juce::String WavetableSynthAudioProcessor::getName() const
 
 bool WavetableSynthAudioProcessor::acceptsMidi() const
 {
-   #if JucePlugin_WantsMidiInput
+#if JucePlugin_WantsMidiInput
     return true;
-   #else
+#else
     return false;
-   #endif
+#endif
 }
 
 bool WavetableSynthAudioProcessor::producesMidi() const
 {
-   #if JucePlugin_ProducesMidiOutput
+#if JucePlugin_ProducesMidiOutput
     return true;
-   #else
+#else
     return false;
-   #endif
+#endif
 }
 
 bool WavetableSynthAudioProcessor::isMidiEffect() const
 {
-   #if JucePlugin_IsMidiEffect
+#if JucePlugin_IsMidiEffect
     return true;
-   #else
+#else
     return false;
-   #endif
+#endif
 }
 
 double WavetableSynthAudioProcessor::getTailLengthSeconds() const
@@ -68,8 +71,7 @@ double WavetableSynthAudioProcessor::getTailLengthSeconds() const
 
 int WavetableSynthAudioProcessor::getNumPrograms()
 {
-    return 1;   // NB: some hosts don't cope very well if you tell them there are 0 programs,
-                // so this should be at least 1, even if you're not really implementing programs.
+    return 1;
 }
 
 int WavetableSynthAudioProcessor::getCurrentProgram()
@@ -93,7 +95,8 @@ void WavetableSynthAudioProcessor::changeProgramName (int index, const juce::Str
 //==============================================================================
 void WavetableSynthAudioProcessor::prepareToPlay (double sampleRate, int)
 {
-    synth.prepareToPlay(sampleRate);
+    synth.prepareToPlay (sampleRate);
+    parametersChanged.store (true);
 }
 
 void WavetableSynthAudioProcessor::releaseResources()
@@ -105,24 +108,24 @@ void WavetableSynthAudioProcessor::releaseResources()
 #ifndef JucePlugin_PreferredChannelConfigurations
 bool WavetableSynthAudioProcessor::isBusesLayoutSupported (const BusesLayout& layouts) const
 {
-  #if JucePlugin_IsMidiEffect
+    #if JucePlugin_IsMidiEffect
     juce::ignoreUnused (layouts);
     return true;
-  #else
+    #else
     // This is the place where you check if the layout is supported.
     // In this template code we only support mono or stereo.
     if (layouts.getMainOutputChannelSet() != juce::AudioChannelSet::mono()
-     && layouts.getMainOutputChannelSet() != juce::AudioChannelSet::stereo())
+        && layouts.getMainOutputChannelSet() != juce::AudioChannelSet::stereo())
         return false;
 
-    // This checks if the input layout matches the output layout
-   #if ! JucePlugin_IsSynth
+        // This checks if the input layout matches the output layout
+        #if !JucePlugin_IsSynth
     if (layouts.getMainOutputChannelSet() != layouts.getMainInputChannelSet())
         return false;
-   #endif
+        #endif
 
     return true;
-  #endif
+    #endif
 }
 #endif
 
@@ -131,9 +134,18 @@ void WavetableSynthAudioProcessor::processBlock (juce::AudioBuffer<float>& buffe
     juce::ScopedNoDenormals noDenormals;
 
     for (auto i = 0; i < buffer.getNumChannels(); ++i)
-        buffer.clear(i, 0, buffer.getNumSamples());
-
-    synth.processBlock(buffer, midiMessages);
+        buffer.clear (i, 0, buffer.getNumSamples());
+    bool expected = true;
+    if (parametersChanged.compare_exchange_strong (expected, false))
+    {
+        synth.setGain (*apvts.getRawParameterValue ("gain"));
+        float attack = *apvts.getRawParameterValue ("attack");
+        float decay = *apvts.getRawParameterValue ("decay");
+        float sustain = *apvts.getRawParameterValue ("sustain");
+        float release = *apvts.getRawParameterValue ("release");
+        synth.setADSR (attack, decay, sustain, release);
+    }
+    synth.processBlock (buffer, midiMessages);
 }
 
 //==============================================================================
@@ -144,21 +156,67 @@ bool WavetableSynthAudioProcessor::hasEditor() const
 
 juce::AudioProcessorEditor* WavetableSynthAudioProcessor::createEditor()
 {
-    return new WavetableSynthAudioProcessorEditor (*this);
+    //    return new WavetableSynthAudioProcessorEditor (*this);
+    auto editor = new juce::GenericAudioProcessorEditor (*this);
+    editor->setSize (500, 1050);
+    return editor;
 }
 
 //==============================================================================
 void WavetableSynthAudioProcessor::getStateInformation (juce::MemoryBlock& destData)
 {
-    // You should use this method to store your parameters in the memory block.
-    // You could do that either as raw data, or use the XML or ValueTree classes
-    // as intermediaries to make it easy to save and load complex data.
+    copyXmlToBinary (*apvts.copyState().createXml(), destData);
 }
 
 void WavetableSynthAudioProcessor::setStateInformation (const void* data, int sizeInBytes)
 {
-    // You should use this method to restore your parameters from this memory block,
-    // whose contents will have been created by the getStateInformation() call.
+    std::unique_ptr<juce::XmlElement> xml (getXmlFromBinary (data, sizeInBytes));
+    if (xml.get() != nullptr && xml->hasTagName (apvts.state.getType()))
+    {
+        apvts.replaceState (juce::ValueTree::fromXml (*xml));
+        parametersChanged.store (true);
+    }
+}
+
+juce::AudioProcessorValueTreeState::ParameterLayout WavetableSynthAudioProcessor::createParameterLayout()
+{
+    return {
+        std::make_unique<juce::AudioParameterFloat> (
+            ParameterID::gain,
+            "Gain",
+            juce::NormalisableRange<float> (-48.0f, 0.0f, 0.1f),
+            -15.0f,
+            juce::AudioParameterFloatAttributes().withLabel ("db")),
+        std::make_unique<juce::AudioParameterChoice> (
+            ParameterID::type,
+            "WaveTable Type",
+            juce::StringArray { "Sine", "Sawtooth", "Triangle" },
+            0),
+        std::make_unique<juce::AudioParameterFloat> (
+            ParameterID::attack,
+            "Attack",
+            juce::NormalisableRange<float> (0.0f, 1.0f, 0.01f),
+            0.1f),
+        std::make_unique<juce::AudioParameterFloat> (
+            ParameterID::decay,
+            "Decay",
+            juce::NormalisableRange<float> (0.0f, 1.0f, 0.01f),
+            0.5f),
+        std::make_unique<juce::AudioParameterFloat> (
+            ParameterID::sustain,
+            "Sustain",
+            juce::NormalisableRange<float> (0.0f, 1.0f, 0.01f),
+            1.0f),
+        std::make_unique<juce::AudioParameterFloat> (
+            ParameterID::release,
+            "Release",
+            juce::NormalisableRange<float> (0.0f, 1.0f, 0.01f),
+            0.3f),
+    };
+}
+void WavetableSynthAudioProcessor::valueTreePropertyChanged (juce::ValueTree&, const juce::Identifier&)
+{
+    parametersChanged.store (true);
 }
 
 //==============================================================================

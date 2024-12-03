@@ -11,10 +11,22 @@
 #include "WavetableSynth.h"
 #include "juce_audio_processors/juce_audio_processors.h"
 
+namespace ParameterID
+{
+#define PARAMETER_ID(str) const juce::ParameterID str (#str, 1);
+    PARAMETER_ID (gain)
+    PARAMETER_ID (attack)
+    PARAMETER_ID (decay)
+    PARAMETER_ID (sustain)
+    PARAMETER_ID (release)
+    PARAMETER_ID (type)
+#undef PARAMETER_ID
+}
 //==============================================================================
 /**
 */
-class WavetableSynthAudioProcessor  : public juce::AudioProcessor
+class WavetableSynthAudioProcessor : public juce::AudioProcessor,
+                                     private juce::ValueTree::Listener
 {
 public:
     //==============================================================================
@@ -25,9 +37,9 @@ public:
     void prepareToPlay (double sampleRate, int samplesPerBlock) override;
     void releaseResources() override;
 
-   #ifndef JucePlugin_PreferredChannelConfigurations
+#ifndef JucePlugin_PreferredChannelConfigurations
     bool isBusesLayoutSupported (const BusesLayout& layouts) const override;
-   #endif
+#endif
 
     void processBlock (juce::AudioBuffer<float>&, juce::MidiBuffer&) override;
 
@@ -54,8 +66,20 @@ public:
     void getStateInformation (juce::MemoryBlock& destData) override;
     void setStateInformation (const void* data, int sizeInBytes) override;
 
+    juce::AudioProcessorValueTreeState apvts;
+
 private:
     //==============================================================================
-    JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(WavetableSynthAudioProcessor)
+    JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (WavetableSynthAudioProcessor)
     WavetableSynth synth;
+    std::atomic<bool> parametersChanged { false };
+    juce::AudioParameterFloat* gainParam;
+    juce::AudioParameterFloat* attackParam;
+    juce::AudioParameterFloat* delayParam;
+    juce::AudioParameterFloat* sustainParam;
+    juce::AudioParameterFloat* releaseParam;
+    juce::AudioParameterChoice* typeParam;
+
+    void valueTreePropertyChanged(juce::ValueTree&, const juce::Identifier&) override;
+    static juce::AudioProcessorValueTreeState::ParameterLayout createParameterLayout();
 };
